@@ -231,7 +231,14 @@ public class LinearRegression extends AbstractClassifier implements
       return;
     }
 
+    /**
+     * Following commented code is code which is not required to be performed over Reducer but can be done in mapper
+     * This capabilty checking has been moved to mappers in Boa code.
+     */
+/*
     if (!m_checksTurnedOff) {
+      System.out.println("Starting the capability check");
+      final long start = System.currentTimeMillis();
       // can classifier handle the data?
       getCapabilities().testWithFail(data);
 
@@ -263,10 +270,14 @@ public class LinearRegression extends AbstractClassifier implements
       m_MissingFilter.setInputFormat(data);
       data = Filter.useFilter(data, m_MissingFilter);
       data.deleteWithMissingClass();
+      System.out.println("Boa LinearRegression getCapabilities Test: " + (System.currentTimeMillis() - start));
     } else {
       m_TransformFilter = null;
       m_MissingFilter = null;
     }
+*/
+    m_TransformFilter = null;
+    m_MissingFilter = null;
 
     m_ClassIndex = data.classIndex();
     m_TransformedData = data;
