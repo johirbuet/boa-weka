@@ -21,31 +21,18 @@
 
 package weka.classifiers.trees;
 
+import weka.classifiers.AbstractClassifier;
+import weka.classifiers.Classifier;
+import weka.classifiers.meta.Bagging;
+import weka.core.*;
+import weka.core.TechnicalInformation.Field;
+import weka.core.TechnicalInformation.Type;
+import weka.gui.ProgrammaticProperty;
+
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
-
-import weka.classifiers.AbstractClassifier;
-import weka.classifiers.Classifier;
-import weka.classifiers.meta.Bagging;
-import weka.core.AdditionalMeasureProducer;
-import weka.core.Aggregateable;
-import weka.core.Capabilities;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.Option;
-import weka.core.OptionHandler;
-import weka.core.PartitionGenerator;
-import weka.core.Randomizable;
-import weka.core.RevisionUtils;
-import weka.core.TechnicalInformation;
-import weka.core.TechnicalInformation.Field;
-import weka.core.TechnicalInformation.Type;
-import weka.core.TechnicalInformationHandler;
-import weka.core.Utils;
-import weka.core.WeightedInstancesHandler;
-import weka.gui.ProgrammaticProperty;
 
 /**
  <!-- globalinfo-start -->
@@ -146,17 +133,11 @@ import weka.gui.ProgrammaticProperty;
  * @author Richard Kirkby (rkirkby@cs.waikato.ac.nz)
  * @version $Revision: 12645 $
  */
-public class RandomForest extends Bagging {
+public class
+RandomForest extends Bagging {
 
   /** for serialization */
   static final long serialVersionUID = 1116839470751428698L;
-
-  /**
-   * The default number of iterations to perform.
-   */
-  protected int defaultNumberOfIterations() {
-    return 100;
-  }
 
   /**
    * Constructor that sets base classifier for bagging to RandomTre and default number of iterations to 100.
@@ -169,6 +150,22 @@ public class RandomForest extends Bagging {
     super.setRepresentCopiesUsingWeights(true);
     setNumIterations(defaultNumberOfIterations());
   }
+
+	/**
+	 * Main method for this class.
+	 *
+	 * @param argv the options
+	 */
+	public static void main(String[] argv) {
+		runClassifier(new RandomForest(), argv);
+	}
+
+	/**
+	 * The default number of iterations to perform.
+	 */
+	protected int defaultNumberOfIterations() {
+		return 100;
+	}
 
   /**
    * Returns default capabilities of the base classifier.
@@ -207,7 +204,7 @@ public class RandomForest extends Bagging {
 
   /**
    * Returns a string describing classifier
-   * 
+   *
    * @return a description suitable for displaying in the explorer/experimenter
    *         gui
    */
@@ -221,7 +218,7 @@ public class RandomForest extends Bagging {
    * Returns an instance of a TechnicalInformation object, containing detailed
    * information about the technical background of this class, e.g., paper
    * reference or book this class is based on.
-   * 
+   *
    * @return the technical information about this class
    */
   @Override
@@ -374,7 +371,7 @@ public class RandomForest extends Bagging {
 
   /**
    * Returns an enumeration describing the available options.
-   * 
+   *
    * @return an enumeration of all the available options
    */
   @Override
@@ -421,7 +418,7 @@ public class RandomForest extends Bagging {
 
   /**
    * Gets the current settings of the forest.
-   * 
+   *
    * @return an array of strings suitable for passing to setOptions()
    */
   @Override
@@ -469,77 +466,77 @@ public class RandomForest extends Bagging {
   /**
    * Parses a given list of options.
    * <p/>
-   * 
+   *
    <!-- options-start -->
    * Valid options are: <p>
-   * 
+   *
    * <pre> -P
    *  Size of each bag, as a percentage of the
    *  training set size. (default 100)</pre>
-   * 
+   *
    * <pre> -O
    *  Calculate the out of bag error.</pre>
-   * 
+   *
    * <pre> -store-out-of-bag-predictions
    *  Whether to store out of bag predictions in internal evaluation object.</pre>
-   * 
+   *
    * <pre> -output-out-of-bag-complexity-statistics
    *  Whether to output complexity-based statistics when out-of-bag evaluation is performed.</pre>
-   * 
+   *
    * <pre> -print
    *  Print the individual classifiers in the output</pre>
-   * 
+   *
    * <pre> -I &lt;num&gt;
    *  Number of iterations.
    *  (current value 100)</pre>
-   * 
+   *
    * <pre> -num-slots &lt;num&gt;
    *  Number of execution slots.
    *  (default 1 - i.e. no parallelism)
    *  (use 0 to auto-detect number of cores)</pre>
-   * 
+   *
    * <pre> -K &lt;number of attributes&gt;
    *  Number of attributes to randomly investigate. (default 0)
    *  (&lt;1 = int(log_2(#predictors)+1)).</pre>
-   * 
+   *
    * <pre> -M &lt;minimum number of instances&gt;
    *  Set minimum number of instances per leaf.
    *  (default 1)</pre>
-   * 
+   *
    * <pre> -V &lt;minimum variance for split&gt;
    *  Set minimum numeric class variance proportion
    *  of train variance for split (default 1e-3).</pre>
-   * 
+   *
    * <pre> -S &lt;num&gt;
    *  Seed for random number generator.
    *  (default 1)</pre>
-   * 
+   *
    * <pre> -depth &lt;num&gt;
    *  The maximum depth of the tree, 0 for unlimited.
    *  (default 0)</pre>
-   * 
+   *
    * <pre> -N &lt;num&gt;
    *  Number of folds for backfitting (default 0, no backfitting).</pre>
-   * 
+   *
    * <pre> -U
    *  Allow unclassified instances.</pre>
-   * 
+   *
    * <pre> -B
    *  Break ties randomly when several attributes look equally good.</pre>
-   * 
+   *
    * <pre> -output-debug-info
    *  If set, classifier is run in debug mode and
    *  may output additional info to the console</pre>
-   * 
+   *
    * <pre> -do-not-check-capabilities
    *  If set, classifier capabilities are not checked before classifier is built
    *  (use with caution).</pre>
-   * 
+   *
    * <pre> -num-decimal-places
    *  The number of decimal places for the output of numbers in the model (default 2).</pre>
-   * 
+   *
    <!-- options-end -->
-   * 
+   *
    * @param options the list of options as an array of strings
    * @throws Exception if an option is not supported
    */
@@ -590,21 +587,12 @@ public class RandomForest extends Bagging {
 
   /**
    * Returns the revision string.
-   * 
+   *
    * @return the revision
    */
   @Override
   public String getRevision() {
     return RevisionUtils.extract("$Revision: 12645 $");
-  }
-
-  /**
-   * Main method for this class.
-   * 
-   * @param argv the options
-   */
-  public static void main(String[] argv) {
-    runClassifier(new RandomForest(), argv);
   }
 }
 

@@ -21,32 +21,19 @@
 
 package weka.classifiers.lazy;
 
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Vector;
-
 import weka.classifiers.AbstractClassifier;
 import weka.classifiers.UpdateableClassifier;
 import weka.classifiers.rules.ZeroR;
-import weka.core.AdditionalMeasureProducer;
-import weka.core.Attribute;
-import weka.core.Capabilities;
+import weka.core.*;
 import weka.core.Capabilities.Capability;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.Option;
-import weka.core.OptionHandler;
-import weka.core.RevisionUtils;
-import weka.core.SelectedTag;
-import weka.core.Tag;
-import weka.core.TechnicalInformation;
 import weka.core.TechnicalInformation.Field;
 import weka.core.TechnicalInformation.Type;
-import weka.core.TechnicalInformationHandler;
-import weka.core.Utils;
-import weka.core.WeightedInstancesHandler;
 import weka.core.neighboursearch.LinearNNSearch;
 import weka.core.neighboursearch.NearestNeighbourSearch;
+
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  <!-- globalinfo-start -->
@@ -117,33 +104,46 @@ public class IBk
   implements OptionHandler, UpdateableClassifier, WeightedInstancesHandler,
              TechnicalInformationHandler, AdditionalMeasureProducer {
 
+  /**
+   * no weighting.
+   */
+  public static final int WEIGHT_NONE = 1;
+  /**
+   * weight by 1/distance.
+   */
+  public static final int WEIGHT_INVERSE = 2;
+  /**
+   * weight by 1-distance.
+   */
+  public static final int WEIGHT_SIMILARITY = 4;
+  /**
+   * possible instance weighting methods.
+   */
+  public static final Tag[] TAGS_WEIGHTING = {
+          new Tag(WEIGHT_NONE, "No distance weighting"),
+          new Tag(WEIGHT_INVERSE, "Weight by 1/distance"),
+          new Tag(WEIGHT_SIMILARITY, "Weight by 1-distance")
+  };
   /** for serialization. */
   static final long serialVersionUID = -3080186098777067172L;
-
   /** The training instances used for classification. */
   protected Instances m_Train;
-
   /** The number of class values (or 1 if predicting numeric). */
   protected int m_NumClasses;
-
   /** The class attribute type. */
   protected int m_ClassType;
-
   /** The number of neighbours to use for classification (currently). */
   protected int m_kNN;
-
   /**
    * The value of kNN provided by the user. This may differ from
    * m_kNN if cross-validation is being used.
    */
   protected int m_kNNUpper;
-
   /**
    * Whether the value of k selected by cross validation has
    * been invalidated by a change in the training instances.
    */
   protected boolean m_kNNValid;
-
   /**
    * The maximum number of training instances allowed. When
    * this limit is reached, old training instances are removed,
@@ -151,35 +151,17 @@ public class IBk
    * numbers of instances.
    */
   protected int m_WindowSize;
-
   /** Whether the neighbours should be distance-weighted. */
   protected int m_DistanceWeighting;
-
   /** Whether to select k by cross validation. */
   protected boolean m_CrossValidate;
-
   /**
    * Whether to minimise mean squared error rather than mean absolute
    * error when cross-validating on numeric prediction tasks.
    */
   protected boolean m_MeanSquared;
-  
   /** Default ZeroR model to use when there are no training instances */
   protected ZeroR m_defaultModel;
-
-  /** no weighting. */
-  public static final int WEIGHT_NONE = 1;
-  /** weight by 1/distance. */
-  public static final int WEIGHT_INVERSE = 2;
-  /** weight by 1-distance. */
-  public static final int WEIGHT_SIMILARITY = 4;
-  /** possible instance weighting methods. */
-  public static final Tag [] TAGS_WEIGHTING = {
-    new Tag(WEIGHT_NONE, "No distance weighting"),
-    new Tag(WEIGHT_INVERSE, "Weight by 1/distance"),
-    new Tag(WEIGHT_SIMILARITY, "Weight by 1-distance")
-  };
-  
   /** for nearest-neighbor search. */
   protected NearestNeighbourSearch m_NNSearch = new LinearNNSearch();
 
@@ -207,7 +189,16 @@ public class IBk
 
     init();
   }
-  
+
+  /**
+   * Main method for testing this class.
+   *
+   * @param argv should contain command line options (see setOptions)
+   */
+  public static void main(String[] argv) {
+    runClassifier(new IBk(), argv);
+  }
+
   /**
    * Returns a string describing classifier.
    * @return a description suitable for
@@ -219,19 +210,19 @@ public class IBk
       + "select appropriate value of K based on cross-validation. Can also do "
       + "distance weighting.\n\n"
       + "For more information, see\n\n"
-      + getTechnicalInformation().toString();
+            + getTechnicalInformation().toString();
   }
 
   /**
-   * Returns an instance of a TechnicalInformation object, containing 
+   * Returns an instance of a TechnicalInformation object, containing
    * detailed information about the technical background of this class,
    * e.g., paper reference or book this class is based on.
-   * 
+   *
    * @return the technical information about this class
    */
   public TechnicalInformation getTechnicalInformation() {
     TechnicalInformation 	result;
-    
+
     result = new TechnicalInformation(Type.ARTICLE);
     result.setValue(Field.AUTHOR, "D. Aha and D. Kibler");
     result.setValue(Field.YEAR, "1991");
@@ -239,10 +230,10 @@ public class IBk
     result.setValue(Field.JOURNAL, "Machine Learning");
     result.setValue(Field.VOLUME, "6");
     result.setValue(Field.PAGES, "37-66");
-    
+
     return result;
   }
-
+  
   /**
    * Returns the tip text for this property.
    * @return tip text for this property suitable for
@@ -250,17 +241,6 @@ public class IBk
    */
   public String KNNTipText() {
     return "The number of neighbours to use.";
-  }
-  
-  /**
-   * Set the number of neighbours the learner is to use.
-   *
-   * @param k the number of neighbours.
-   */
-  public void setKNN(int k) {
-    m_kNN = k;
-    m_kNNUpper = k;
-    m_kNNValid = false;
   }
 
   /**
@@ -273,6 +253,17 @@ public class IBk
     return m_kNN;
   }
 
+  /**
+   * Set the number of neighbours the learner is to use.
+   *
+   * @param k the number of neighbours.
+   */
+  public void setKNN(int k) {
+    m_kNN = k;
+    m_kNNUpper = k;
+    m_kNNValid = false;
+  }
+  
   /**
    * Returns the tip text for this property.
    * @return tip text for this property suitable for
@@ -294,7 +285,7 @@ public class IBk
    * @return Value of WindowSize.
    */
   public int getWindowSize() {
-    
+
     return m_WindowSize;
   }
   
@@ -307,7 +298,7 @@ public class IBk
    * @param newWindowSize Value to assign to WindowSize.
    */
   public void setWindowSize(int newWindowSize) {
-    
+
     m_WindowSize = newWindowSize;
   }
   
@@ -339,12 +330,12 @@ public class IBk
    * @param newMethod the distance weighting method to use
    */
   public void setDistanceWeighting(SelectedTag newMethod) {
-    
+
     if (newMethod.getTags() == TAGS_WEIGHTING) {
       m_DistanceWeighting = newMethod.getSelectedTag().getID();
     }
   }
-  
+
   /**
    * Returns the tip text for this property.
    * @return tip text for this property suitable for
@@ -355,7 +346,7 @@ public class IBk
     return "Whether the mean squared error is used rather than mean "
       + "absolute error when doing cross-validation for regression problems.";
   }
-
+  
   /**
    * Gets whether the mean squared error is used rather than mean
    * absolute error when doing cross-validation.
@@ -363,7 +354,7 @@ public class IBk
    * @return true if so.
    */
   public boolean getMeanSquared() {
-    
+
     return m_MeanSquared;
   }
   
@@ -374,7 +365,7 @@ public class IBk
    * @param newMeanSquared true if so.
    */
   public void setMeanSquared(boolean newMeanSquared) {
-    
+
     m_MeanSquared = newMeanSquared;
   }
   
@@ -397,10 +388,10 @@ public class IBk
    * @return true if cross-validation will be used.
    */
   public boolean getCrossValidate() {
-    
+
     return m_CrossValidate;
   }
-  
+
   /**
    * Sets whether hold-one-out cross-validation will be used
    * to select the best k value.
@@ -408,10 +399,10 @@ public class IBk
    * @param newCrossValidate true if cross-validation should be used.
    */
   public void setCrossValidate(boolean newCrossValidate) {
-    
+
     m_CrossValidate = newCrossValidate;
   }
-
+  
   /**
    * Returns the tip text for this property.
    * @return tip text for this property suitable for
@@ -429,7 +420,7 @@ public class IBk
   public NearestNeighbourSearch getNearestNeighbourSearchAlgorithm() {
     return m_NNSearch;
   }
-  
+   
   /**
    * Sets the nearestNeighbourSearch algorithm to be used for finding nearest
    * neighbour(s).
@@ -438,17 +429,17 @@ public class IBk
   public void setNearestNeighbourSearchAlgorithm(NearestNeighbourSearch nearestNeighbourSearchAlgorithm) {
     m_NNSearch = nearestNeighbourSearchAlgorithm;
   }
-   
+
   /**
    * Get the number of training instances the classifier is currently using.
-   * 
+   *
    * @return the number of training instances the classifier is currently using
    */
   public int getNumTraining() {
 
     return m_Train.numInstances();
   }
-
+  
   /**
    * Returns default capabilities of the classifier.
    *
@@ -472,50 +463,51 @@ public class IBk
 
     // instances
     result.setMinimumNumberInstances(0);
-    
+
     return result;
   }
-  
+
   /**
    * Generates the classifier.
    *
-   * @param instances set of instances serving as training data 
+   * @param instances set of instances serving as training data
    * @throws Exception if the classifier has not been generated successfully
    */
   public void buildClassifier(Instances instances) throws Exception {
-    
+
+/*
     // can classifier handle the data?
     getCapabilities().testWithFail(instances);
 
     // remove instances with missing class
     instances = new Instances(instances);
     instances.deleteWithMissingClass();
-    
+*/
     m_NumClasses = instances.numClasses();
     m_ClassType = instances.classAttribute().type();
     m_Train = new Instances(instances, 0, instances.numInstances());
 
     // Throw away initial instances until within the specified window size
     if ((m_WindowSize > 0) && (instances.numInstances() > m_WindowSize)) {
-      m_Train = new Instances(m_Train, 
-			      m_Train.numInstances()-m_WindowSize, 
+      m_Train = new Instances(m_Train,
+              m_Train.numInstances()-m_WindowSize,
 			      m_WindowSize);
     }
 
     m_NumAttributesUsed = 0.0;
     for (int i = 0; i < m_Train.numAttributes(); i++) {
-      if ((i != m_Train.classIndex()) && 
-	  (m_Train.attribute(i).isNominal() ||
+      if ((i != m_Train.classIndex()) &&
+              (m_Train.attribute(i).isNominal() ||
 	   m_Train.attribute(i).isNumeric())) {
 	m_NumAttributesUsed += 1.0;
       }
     }
-    
+
     m_NNSearch.setInstances(m_Train);
 
     // Invalidate any currently cross-validation selected k
     m_kNNValid = false;
-    
+
     m_defaultModel = new ZeroR();
     m_defaultModel.buildClassifier(instances);
   }
@@ -599,38 +591,70 @@ public class IBk
     Vector<Option> newVector = new Vector<Option>(7);
 
     newVector.addElement(new Option(
-	      "\tWeight neighbours by the inverse of their distance\n"+
-	      "\t(use when k > 1)",
-	      "I", 0, "-I"));
+            "\tWeight neighbours by the inverse of their distance\n"+
+                    "\t(use when k > 1)",
+            "I", 0, "-I"));
     newVector.addElement(new Option(
-	      "\tWeight neighbours by 1 - their distance\n"+
-	      "\t(use when k > 1)",
-	      "F", 0, "-F"));
+            "\tWeight neighbours by 1 - their distance\n"+
+                    "\t(use when k > 1)",
+            "F", 0, "-F"));
     newVector.addElement(new Option(
-	      "\tNumber of nearest neighbours (k) used in classification.\n"+
-	      "\t(Default = 1)",
-	      "K", 1,"-K <number of neighbors>"));
+            "\tNumber of nearest neighbours (k) used in classification.\n"+
+                    "\t(Default = 1)",
+            "K", 1,"-K <number of neighbors>"));
     newVector.addElement(new Option(
-          "\tMinimise mean squared error rather than mean absolute\n"+
-	      "\terror when using -X option with numeric prediction.",
-	      "E", 0,"-E"));
+            "\tMinimise mean squared error rather than mean absolute\n"+
+                    "\terror when using -X option with numeric prediction.",
+            "E", 0,"-E"));
     newVector.addElement(new Option(
-          "\tMaximum number of training instances maintained.\n"+
-	      "\tTraining instances are dropped FIFO. (Default = no window)",
-	      "W", 1,"-W <window size>"));
+            "\tMaximum number of training instances maintained.\n"+
+                    "\tTraining instances are dropped FIFO. (Default = no window)",
+            "W", 1,"-W <window size>"));
     newVector.addElement(new Option(
-	      "\tSelect the number of nearest neighbours between 1\n"+
-	      "\tand the k value specified using hold-one-out evaluation\n"+
-	      "\ton the training data (use when k > 1)",
-	      "X", 0,"-X"));
+            "\tSelect the number of nearest neighbours between 1\n"+
+                    "\tand the k value specified using hold-one-out evaluation\n"+
+                    "\ton the training data (use when k > 1)",
+            "X", 0,"-X"));
     newVector.addElement(new Option(
-	      "\tThe nearest neighbour search algorithm to use "+
-          "(default: weka.core.neighboursearch.LinearNNSearch).\n",
-	      "A", 0, "-A"));
+            "\tThe nearest neighbour search algorithm to use "+
+                    "(default: weka.core.neighboursearch.LinearNNSearch).\n",
+            "A", 0, "-A"));
 
     newVector.addAll(Collections.list(super.listOptions()));
-    
+
     return newVector.elements();
+  }
+
+  /**
+   * Gets the current settings of IBk.
+   *
+   * @return an array of strings suitable for passing to setOptions()
+   */
+  public String[] getOptions() {
+
+    Vector<String> options = new Vector<String>();
+    options.add("-K");
+    options.add("" + getKNN());
+    options.add("-W");
+    options.add("" + m_WindowSize);
+    if (getCrossValidate()) {
+      options.add("-X");
+    }
+    if (getMeanSquared()) {
+      options.add("-E");
+    }
+    if (m_DistanceWeighting == WEIGHT_INVERSE) {
+      options.add("-I");
+    } else if (m_DistanceWeighting == WEIGHT_SIMILARITY) {
+      options.add("-F");
+    }
+
+    options.add("-A");
+    options.add(m_NNSearch.getClass().getName() + " " + Utils.joinOptions(m_NNSearch.getOptions()));
+
+    Collections.addAll(options, super.getOptions());
+
+    return options.toArray(new String[0]);
   }
 
   /**
@@ -638,43 +662,43 @@ public class IBk
    *
    <!-- options-start -->
    * Valid options are: <p/>
-   * 
+   *
    * <pre> -I
    *  Weight neighbours by the inverse of their distance
    *  (use when k &gt; 1)</pre>
-   * 
+   *
    * <pre> -F
    *  Weight neighbours by 1 - their distance
    *  (use when k &gt; 1)</pre>
-   * 
+   *
    * <pre> -K &lt;number of neighbors&gt;
    *  Number of nearest neighbours (k) used in classification.
    *  (Default = 1)</pre>
-   * 
+   *
    * <pre> -E
    *  Minimise mean squared error rather than mean absolute
    *  error when using -X option with numeric prediction.</pre>
-   * 
+   *
    * <pre> -W &lt;window size&gt;
    *  Maximum number of training instances maintained.
    *  Training instances are dropped FIFO. (Default = no window)</pre>
-   * 
+   *
    * <pre> -X
    *  Select the number of nearest neighbours between 1
    *  and the k value specified using hold-one-out evaluation
    *  on the training data (use when k &gt; 1)</pre>
-   * 
+   *
    * <pre> -A
    *  The nearest neighbour search algorithm to use (default: weka.core.neighboursearch.LinearNNSearch).
    * </pre>
-   * 
+   *
    <!-- options-end -->
    *
    * @param options the list of options as an array of strings
    * @throws Exception if an option is not supported
    */
   public void setOptions(String[] options) throws Exception {
-    
+
     String knnString = Utils.getOption('K', options);
     if (knnString.length() != 0) {
       setKNN(Integer.parseInt(knnString));
@@ -700,62 +724,32 @@ public class IBk
     String nnSearchClass = Utils.getOption('A', options);
     if(nnSearchClass.length() != 0) {
       String nnSearchClassSpec[] = Utils.splitOptions(nnSearchClass);
-      if(nnSearchClassSpec.length == 0) { 
+      if (nnSearchClassSpec.length == 0) {
         throw new Exception("Invalid NearestNeighbourSearch algorithm " +
-                            "specification string."); 
+                "specification string.");
       }
       String className = nnSearchClassSpec[0];
       nnSearchClassSpec[0] = "";
 
-      setNearestNeighbourSearchAlgorithm( (NearestNeighbourSearch)
-                  Utils.forName( NearestNeighbourSearch.class, 
-                                 className, 
+      setNearestNeighbourSearchAlgorithm((NearestNeighbourSearch)
+              Utils.forName(NearestNeighbourSearch.class,
+                      className,
                                  nnSearchClassSpec)
-                                        );
+      );
     }
-    else 
+    else
       this.setNearestNeighbourSearchAlgorithm(new LinearNNSearch());
-    
+
     super.setOptions(options);
-    
+
     Utils.checkForRemainingOptions(options);
   }
 
   /**
-   * Gets the current settings of IBk.
-   *
-   * @return an array of strings suitable for passing to setOptions()
-   */
-  public String [] getOptions() {
-
-    Vector<String> options = new Vector<String>();
-    options.add("-K"); options.add("" + getKNN());
-    options.add("-W"); options.add("" + m_WindowSize);
-    if (getCrossValidate()) {
-        options.add("-X");
-    }
-    if (getMeanSquared()) {
-        options.add("-E");
-    }
-    if (m_DistanceWeighting == WEIGHT_INVERSE) {
-        options.add("-I");
-    } else if (m_DistanceWeighting == WEIGHT_SIMILARITY) {
-        options.add("-F");
-    }
-
-    options.add("-A");
-    options.add(m_NNSearch.getClass().getName()+" "+Utils.joinOptions(m_NNSearch.getOptions())); 
-    
-    Collections.addAll(options, super.getOptions());
-    
-    return options.toArray(new String[0]);
-  }
-
-  /**
-   * Returns an enumeration of the additional measure names 
+   * Returns an enumeration of the additional measure names
    * produced by the neighbour search algorithm, plus the chosen K in case
    * cross-validation is enabled.
-   * 
+   *
    * @return an enumeration of the measure names
    */
   public Enumeration<String> enumerateMeasures() {
@@ -771,12 +765,12 @@ public class IBk
       return m_NNSearch.enumerateMeasures();
     }
   }
-  
+
   /**
-   * Returns the value of the named measure from the 
+   * Returns the value of the named measure from the
    * neighbour search algorithm, plus the chosen K in case
    * cross-validation is enabled.
-   * 
+   *
    * @param additionalMeasureName the name of the measure to query for its value
    * @return the value of the named measure
    * @throws IllegalArgumentException if the named measure is not supported
@@ -787,8 +781,7 @@ public class IBk
     else
       return m_NNSearch.getMeasure(additionalMeasureName);
   }
-  
-  
+
   /**
    * Returns a description of this classifier.
    *
@@ -799,7 +792,7 @@ public class IBk
     if (m_Train == null) {
       return "IBk: No model built yet.";
     }
-    
+
     if (m_Train.numInstances() == 0) {
       return "Warning: no training instances - ZeroR model used.";
     }
@@ -807,7 +800,7 @@ public class IBk
     if (!m_kNNValid && m_CrossValidate) {
       crossValidate();
     }
-    
+
     String result = "IB1 instance-based classifier\n" +
       "using " + m_kNN;
 
@@ -822,12 +815,12 @@ public class IBk
     result += " nearest neighbour(s) for classification\n";
 
     if (m_WindowSize != 0) {
-      result += "using a maximum of " 
-	+ m_WindowSize + " (windowed) training instances\n";
+      result += "using a maximum of "
+              + m_WindowSize + " (windowed) training instances\n";
     }
     return result;
   }
-
+  
   /**
    * Initialise scheme variables.
    */
@@ -839,7 +832,7 @@ public class IBk
     m_CrossValidate = false;
     m_MeanSquared = false;
   }
-  
+
   /**
    * Turn the list of nearest neighbors into a probability distribution.
    *
@@ -853,7 +846,7 @@ public class IBk
 
     double total = 0, weight;
     double [] distribution = new double [m_NumClasses];
-    
+
     // Set up a correction to the estimator
     if (m_ClassType == Attribute.NOMINAL) {
       for(int i = 0; i < m_NumClasses; i++) {
@@ -891,7 +884,7 @@ public class IBk
       } catch (Exception ex) {
         throw new Error("Data has no class attribute!");
       }
-      total += weight;      
+      total += weight;
     }
 
     // Normalise distribution
@@ -900,7 +893,7 @@ public class IBk
     }
     return distribution;
   }
-
+  
   /**
    * Select the best value for k by hold-one-out cross-validation.
    * If the class attribute is nominal, classification error is
@@ -936,13 +929,13 @@ public class IBk
 	instance = m_Train.instance(i);
 	neighbours = m_NNSearch.kNearestNeighbours(instance, m_kNN);
         origDistances = m_NNSearch.getDistances();
-        
+
 	for(int j = m_kNNUpper - 1; j >= 0; j--) {
 	  // Update the performance stats
-          convertedDistances = new double[origDistances.length];
-          System.arraycopy(origDistances, 0, 
-                           convertedDistances, 0, origDistances.length);
-	  double [] distribution = makeDistribution(neighbours, 
+      convertedDistances = new double[origDistances.length];
+      System.arraycopy(origDistances, 0,
+              convertedDistances, 0, origDistances.length);
+      double[] distribution = makeDistribution(neighbours,
                                                     convertedDistances);
           double thisPrediction = Utils.maxIndex(distribution);
 	  if (m_Train.classAttribute().isNumeric()) {
@@ -1008,7 +1001,7 @@ public class IBk
       if (m_Debug) {
 	System.err.println("Selected k = " + bestK);
       }
-      
+
       m_kNNValid = true;
     } catch (Exception ex) {
       throw new Error("Couldn't optimize by cross-validation: "
@@ -1026,14 +1019,14 @@ public class IBk
    * @return the pruned neighbours.
    */
   public Instances pruneToK(Instances neighbours, double[] distances, int k) {
-    
+
     if(neighbours==null || distances==null || neighbours.numInstances()==0) {
       return null;
     }
     if (k < 1) {
       k = 1;
     }
-    
+
     int currentK = 0;
     double currentDist;
     for(int i=0; i < neighbours.numInstances(); i++) {
@@ -1051,19 +1044,10 @@ public class IBk
   
   /**
    * Returns the revision string.
-   * 
+   *
    * @return		the revision
    */
   public String getRevision() {
     return RevisionUtils.extract("$Revision: 10141 $");
-  }
-  
-  /**
-   * Main method for testing this class.
-   *
-   * @param argv should contain command line options (see setOptions)
-   */
-  public static void main(String [] argv) {
-    runClassifier(new IBk(), argv);
   }
 }

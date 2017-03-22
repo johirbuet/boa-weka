@@ -21,30 +21,19 @@
 
 package weka.classifiers.bayes;
 
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Vector;
-
 import weka.classifiers.AbstractClassifier;
-import weka.core.Aggregateable;
-import weka.core.Attribute;
-import weka.core.Capabilities;
+import weka.core.*;
 import weka.core.Capabilities.Capability;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.Option;
-import weka.core.OptionHandler;
-import weka.core.RevisionUtils;
-import weka.core.TechnicalInformation;
 import weka.core.TechnicalInformation.Field;
 import weka.core.TechnicalInformation.Type;
-import weka.core.TechnicalInformationHandler;
-import weka.core.Utils;
-import weka.core.WeightedInstancesHandler;
 import weka.estimators.DiscreteEstimator;
 import weka.estimators.Estimator;
 import weka.estimators.KernelEstimator;
 import weka.estimators.NormalEstimator;
+
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  * <!-- globalinfo-start --> Class for a Naive Bayes classifier using estimator
@@ -109,39 +98,31 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
   WeightedInstancesHandler, TechnicalInformationHandler,
   Aggregateable<NaiveBayes> {
 
+	/*** The precision parameter used for numeric attributes */
+	protected static final double DEFAULT_NUM_PRECISION = 0.01;
   /** for serialization */
   static final long serialVersionUID = 5995231201785697655L;
-
   /** The attribute estimators. */
   protected Estimator[][] m_Distributions;
-
   /** The class estimator. */
   protected Estimator m_ClassDistribution;
-
   /**
    * Whether to use kernel density estimator rather than normal distribution for
    * numeric attributes
    */
   protected boolean m_UseKernelEstimator = false;
-
   /**
    * Whether to use discretization than normal distribution for numeric
    * attributes
    */
   protected boolean m_UseDiscretization = false;
-
   /** The number of classes (or 1 for numeric class) */
   protected int m_NumClasses;
-
   /**
    * The dataset header for the purposes of printing out a semi-intelligible
    * model
    */
   protected Instances m_Instances;
-
-  /*** The precision parameter used for numeric attributes */
-  protected static final double DEFAULT_NUM_PRECISION = 0.01;
-
   /**
    * The discretization filter.
    */
@@ -149,9 +130,18 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   protected boolean m_displayModelInOldFormat = false;
 
+	/**
+	 * Main method for testing this class.
+	 *
+	 * @param argv the options
+	 */
+	public static void main(String[] argv) {
+		runClassifier(new NaiveBayes(), argv);
+	}
+
   /**
    * Returns a string describing this classifier
-   * 
+   *
    * @return a description of the classifier suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -172,7 +162,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
    * Returns an instance of a TechnicalInformation object, containing detailed
    * information about the technical background of this class, e.g., paper
    * reference or book this class is based on.
-   * 
+   *
    * @return the technical information about this class
    */
   @Override
@@ -195,7 +185,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns default capabilities of the classifier.
-   * 
+   *
    * @return the capabilities of this classifier
    */
   @Override
@@ -218,26 +208,33 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
     return result;
   }
 
+	public boolean getM_UseDiscretization() {
+		return this.m_UseDiscretization;
+	}
+
   /**
    * Generates the classifier.
-   * 
+   *
    * @param instances set of instances serving as training data
    * @exception Exception if the classifier has not been generated successfully
    */
   @Override
   public void buildClassifier(Instances instances) throws Exception {
 
-    // can classifier handle the data?
+/*
+	// can classifier handle the data?
     getCapabilities().testWithFail(instances);
 
     // remove instances with missing class
     instances = new Instances(instances);
     instances.deleteWithMissingClass();
-
-    m_NumClasses = instances.numClasses();
+*/
+	  m_NumClasses = instances.numClasses();
 
     // Copy the instances
-    m_Instances = new Instances(instances);
+//    m_Instances = new Instances(instances);
+	  m_Instances = instances;
+
 
     // Discretize instances if required
     if (m_UseDiscretization) {
@@ -247,6 +244,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
     } else {
       m_Disc = null;
     }
+
 
     // Reserve space for the distributions
     m_Distributions = new Estimator[m_Instances.numAttributes() - 1][m_Instances
@@ -318,7 +316,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Updates the classifier with the given instance.
-   * 
+   *
    * @param instance the new training instance to include in the model
    * @exception Exception if the instance could not be incorporated in the
    *              model.
@@ -342,7 +340,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Calculates the class membership probabilities for the given test instance.
-   * 
+   *
    * @param instance the instance to be classified
    * @return predicted class probability distribution
    * @exception Exception if there is a problem generating the prediction
@@ -394,7 +392,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns an enumeration describing the available options.
-   * 
+   *
    * @return an enumeration of all the available options.
    */
   @Override
@@ -419,31 +417,58 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
     return newVector.elements();
   }
 
+	/**
+	 * Gets the current settings of the classifier.
+	 *
+	 * @return an array of strings suitable for passing to setOptions
+	 */
+	@Override
+	public String[] getOptions() {
+
+		Vector<String> options = new Vector<String>();
+
+		Collections.addAll(options, super.getOptions());
+
+		if (m_UseKernelEstimator) {
+			options.add("-K");
+		}
+
+		if (m_UseDiscretization) {
+			options.add("-D");
+		}
+
+		if (m_displayModelInOldFormat) {
+			options.add("-O");
+		}
+
+		return options.toArray(new String[0]);
+	}
+
   /**
    * Parses a given list of options.
    * <p/>
-   * 
+   *
    * <!-- options-start --> Valid options are:
    * <p/>
-   * 
+   *
    * <pre>
    * -K
    *  Use kernel density estimator rather than normal
    *  distribution for numeric attributes
    * </pre>
-   * 
+   *
    * <pre>
    * -D
    *  Use supervised discretization to process numeric attributes
    * </pre>
-   * 
+   *
    * <pre>
    * -O
    *  Display model in old format (good when there are many classes)
    * </pre>
-   * 
+   *
    * <!-- options-end -->
-   * 
+   *
    * @param options the list of options as an array of strings
    * @exception Exception if an option is not supported
    */
@@ -464,35 +489,8 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Gets the current settings of the classifier.
-   * 
-   * @return an array of strings suitable for passing to setOptions
-   */
-  @Override
-  public String[] getOptions() {
-
-    Vector<String> options = new Vector<String>();
-
-    Collections.addAll(options, super.getOptions());
-
-    if (m_UseKernelEstimator) {
-      options.add("-K");
-    }
-
-    if (m_UseDiscretization) {
-      options.add("-D");
-    }
-
-    if (m_displayModelInOldFormat) {
-      options.add("-O");
-    }
-
-    return options.toArray(new String[0]);
-  }
-
-  /**
    * Returns a description of the classifier.
-   * 
+   *
    * @return a description of the classifier as a string.
    */
   @Override
@@ -801,7 +799,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns a description of the classifier in the old format.
-   * 
+   *
    * @return a description of the classifier as a string.
    */
   protected String toStringOriginal() {
@@ -856,7 +854,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -867,7 +865,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Gets if kernel estimator is being used.
-   * 
+   *
    * @return Value of m_UseKernelEstimatory.
    */
   public boolean getUseKernelEstimator() {
@@ -877,7 +875,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Sets if kernel estimator is to be used.
-   * 
+   *
    * @param v Value to assign to m_UseKernelEstimatory.
    */
   public void setUseKernelEstimator(boolean v) {
@@ -890,7 +888,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -901,7 +899,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Get whether supervised discretization is to be used.
-   * 
+   *
    * @return true if supervised discretization is to be used.
    */
   public boolean getUseSupervisedDiscretization() {
@@ -911,7 +909,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Set whether supervised discretization is to be used.
-   * 
+   *
    * @param newblah true if supervised discretization is to be used.
    */
   public void setUseSupervisedDiscretization(boolean newblah) {
@@ -924,7 +922,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -935,15 +933,6 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Set whether to display model output in the old, original format.
-   * 
-   * @param d true if model ouput is to be shown in the old format
-   */
-  public void setDisplayModelInOldFormat(boolean d) {
-    m_displayModelInOldFormat = d;
-  }
-
-  /**
    * Get whether to display model output in the old, original format.
    * 
    * @return true if model ouput is to be shown in the old format
@@ -951,6 +940,15 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
   public boolean getDisplayModelInOldFormat() {
     return m_displayModelInOldFormat;
   }
+
+	/**
+	 * Set whether to display model output in the old, original format.
+	 *
+	 * @param d true if model ouput is to be shown in the old format
+	 */
+	public void setDisplayModelInOldFormat(boolean d) {
+		m_displayModelInOldFormat = d;
+	}
 
   /**
    * Return the header that this classifier was trained with
@@ -981,7 +979,7 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns the revision string.
-   * 
+   *
    * @return the revision
    */
   @Override
@@ -1022,14 +1020,5 @@ public class NaiveBayes extends AbstractClassifier implements OptionHandler,
   @Override
   public void finalizeAggregation() throws Exception {
     // nothing to do
-  }
-
-  /**
-   * Main method for testing this class.
-   * 
-   * @param argv the options
-   */
-  public static void main(String[] argv) {
-    runClassifier(new NaiveBayes(), argv);
   }
 }

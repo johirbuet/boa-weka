@@ -21,33 +21,21 @@
 
 package weka.classifiers.functions;
 
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Vector;
-
 import weka.classifiers.AbstractClassifier;
 import weka.classifiers.pmml.producer.LogisticProducerHelper;
-import weka.core.Aggregateable;
-import weka.core.Capabilities;
+import weka.core.*;
 import weka.core.Capabilities.Capability;
-import weka.core.ConjugateGradientOptimization;
-import weka.core.Instance;
-import weka.core.Instances;
-import weka.core.Optimization;
-import weka.core.Option;
-import weka.core.OptionHandler;
-import weka.core.RevisionUtils;
-import weka.core.TechnicalInformation;
 import weka.core.TechnicalInformation.Field;
 import weka.core.TechnicalInformation.Type;
-import weka.core.TechnicalInformationHandler;
-import weka.core.Utils;
-import weka.core.WeightedInstancesHandler;
 import weka.core.pmml.PMMLProducer;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.NominalToBinary;
 import weka.filters.unsupervised.attribute.RemoveUseless;
 import weka.filters.unsupervised.attribute.ReplaceMissingValues;
+
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  * <!-- globalinfo-start --> Class for building and using a multinomial logistic
@@ -159,25 +147,21 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
 
   /** The ridge parameter. */
   protected double m_Ridge = 1e-8;
-
+	/**
+	 * Log-likelihood of the searched model
+	 */
+	protected double m_LL;
+	protected int m_numModels = 0;
   /** An attribute filter */
   private RemoveUseless m_AttFilter;
-
   /** The filter used to make attributes numeric. */
   private NominalToBinary m_NominalToBinary;
-
   /** The filter used to get rid of missing values. */
   private ReplaceMissingValues m_ReplaceMissingValues;
-
-  /** Log-likelihood of the searched model */
-  protected double m_LL;
-
   /** The maximum number of iterations. */
   private int m_MaxIts = -1;
-
   /** Wether to use conjugate gradient descent rather than BFGS updates. */
   private boolean m_useConjugateGradientDescent = false;
-
   private Instances m_structure;
 
   /**
@@ -185,12 +169,22 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
    */
   public Logistic() {
 
-    setNumDecimalPlaces(4);
+	  setNumDecimalPlaces(4);
   }
+
+	/**
+	 * Main method for testing this class.
+	 *
+	 * @param argv should contain the command line arguments to the scheme (see
+	 *             Evaluation)
+	 */
+	public static void main(String[] argv) {
+		runClassifier(new Logistic(), argv);
+	}
 
   /**
    * Returns a string describing this classifier
-   * 
+   *
    * @return a description of the classifier suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -230,7 +224,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
    * Returns an instance of a TechnicalInformation object, containing detailed
    * information about the technical background of this class, e.g., paper
    * reference or book this class is based on.
-   * 
+   *
    * @return the technical information about this class
    */
   @Override
@@ -251,50 +245,73 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns an enumeration describing the available options
-   * 
+   *
    * @return an enumeration of all the available options
    */
   @Override
   public Enumeration<Option> listOptions() {
-    Vector<Option> newVector = new Vector<Option>(4);
+	  Vector<Option> newVector = new Vector<Option>(4);
 
-    newVector.addElement(new Option(
-      "\tUse conjugate gradient descent rather than BFGS updates.", "C", 0,
-      "-C"));
-    newVector.addElement(new Option("\tSet the ridge in the log-likelihood.",
-      "R", 1, "-R <ridge>"));
-    newVector.addElement(new Option("\tSet the maximum number of iterations"
-      + " (default -1, until convergence).", "M", 1, "-M <number>"));
+	  newVector.addElement(new Option(
+			  "\tUse conjugate gradient descent rather than BFGS updates.", "C", 0,
+			  "-C"));
+	  newVector.addElement(new Option("\tSet the ridge in the log-likelihood.",
+			  "R", 1, "-R <ridge>"));
+	  newVector.addElement(new Option("\tSet the maximum number of iterations"
+			  + " (default -1, until convergence).", "M", 1, "-M <number>"));
 
-    newVector.addAll(Collections.list(super.listOptions()));
+	  newVector.addAll(Collections.list(super.listOptions()));
 
-    return newVector.elements();
+	  return newVector.elements();
   }
+
+	/**
+	 * Gets the current settings of the classifier.
+	 *
+	 * @return an array of strings suitable for passing to setOptions
+	 */
+	@Override
+	public String[] getOptions() {
+
+		Vector<String> options = new Vector<String>();
+
+		if (getUseConjugateGradientDescent()) {
+			options.add("-C");
+		}
+		options.add("-R");
+		options.add("" + m_Ridge);
+		options.add("-M");
+		options.add("" + m_MaxIts);
+
+		Collections.addAll(options, super.getOptions());
+
+		return options.toArray(new String[0]);
+	}
 
   /**
    * Parses a given list of options.
    * <p/>
-   * 
+   *
    * <!-- options-start --> Valid options are:
    * <p/>
-   * 
+   *
    * <pre>
    * -D
    *  Turn on debugging output.
    * </pre>
-   * 
+   *
    * <pre>
    * -R &lt;ridge&gt;
    *  Set the ridge in the log-likelihood.
    * </pre>
-   * 
+   *
    * <pre>
    * -M &lt;number&gt;
    *  Set the maximum number of iterations (default -1, until convergence).
    * </pre>
-   * 
+   *
    * <!-- options-end -->
-   * 
+   *
    * @param options the list of options as an array of strings
    * @throws Exception if an option is not supported
    */
@@ -323,31 +340,8 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Gets the current settings of the classifier.
-   * 
-   * @return an array of strings suitable for passing to setOptions
-   */
-  @Override
-  public String[] getOptions() {
-
-    Vector<String> options = new Vector<String>();
-
-    if (getUseConjugateGradientDescent()) {
-      options.add("-C");
-    }
-    options.add("-R");
-    options.add("" + m_Ridge);
-    options.add("-M");
-    options.add("" + m_MaxIts);
-
-    Collections.addAll(options, super.getOptions());
-
-    return options.toArray(new String[0]);
-  }
-
-  /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -357,28 +351,28 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Sets whether debugging output will be printed.
-   * 
-   * @param debug true if debugging output should be printed
-   */
-  @Override
-  public void setDebug(boolean debug) {
-    m_Debug = debug;
-  }
-
-  /**
    * Gets whether debugging output will be printed.
-   * 
+   *
    * @return true if debugging output will be printed
    */
   @Override
   public boolean getDebug() {
-    return m_Debug;
+	  return m_Debug;
   }
+
+	/**
+	 * Sets whether debugging output will be printed.
+	 *
+	 * @param debug true if debugging output should be printed
+	 */
+	@Override
+	public void setDebug(boolean debug) {
+		m_Debug = debug;
+	}
 
   /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -387,26 +381,26 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Sets whether conjugate gradient descent is used.
-   * 
-   * @param useConjugateGradientDescent true if CGD is to be used.
-   */
-  public void setUseConjugateGradientDescent(boolean useConjugateGradientDescent) {
-    m_useConjugateGradientDescent = useConjugateGradientDescent;
-  }
-
-  /**
    * Gets whether to use conjugate gradient descent rather than BFGS updates.
-   * 
+   *
    * @return true if CGD is used
    */
   public boolean getUseConjugateGradientDescent() {
-    return m_useConjugateGradientDescent;
+	  return m_useConjugateGradientDescent;
   }
 
-  /**
+	/**
+	 * Sets whether conjugate gradient descent is used.
+	 *
+	 * @param useConjugateGradientDescent true if CGD is to be used.
+	 */
+	public void setUseConjugateGradientDescent(boolean useConjugateGradientDescent) {
+		m_useConjugateGradientDescent = useConjugateGradientDescent;
+	}
+
+	/**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -414,27 +408,27 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     return "Set the Ridge value in the log-likelihood.";
   }
 
-  /**
-   * Sets the ridge in the log-likelihood.
-   * 
-   * @param ridge the ridge
-   */
-  public void setRidge(double ridge) {
-    m_Ridge = ridge;
-  }
-
-  /**
+	/**
    * Gets the ridge in the log-likelihood.
-   * 
+   *
    * @return the ridge
    */
-  public double getRidge() {
-    return m_Ridge;
-  }
+	public double getRidge() {
+		return m_Ridge;
+	}
+
+	/**
+	 * Sets the ridge in the log-likelihood.
+	 *
+	 * @param ridge the ridge
+	 */
+	public void setRidge(double ridge) {
+		m_Ridge = ridge;
+	}
 
   /**
    * Returns the tip text for this property
-   * 
+   *
    * @return tip text for this property suitable for displaying in the
    *         explorer/experimenter gui
    */
@@ -444,7 +438,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
 
   /**
    * Get the value of MaxIts.
-   * 
+   *
    * @return Value of MaxIts.
    */
   public int getMaxIts() {
@@ -454,7 +448,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
 
   /**
    * Set the value of MaxIts.
-   * 
+   *
    * @param newMaxIts Value to assign to MaxIts.
    */
   public void setMaxIts(int newMaxIts) {
@@ -462,189 +456,9 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     m_MaxIts = newMaxIts;
   }
 
-  private class OptEng extends Optimization {
-
-    OptObject m_oO = null;
-
-    private OptEng(OptObject oO) {
-      m_oO = oO;
-    }
-
-    @Override
-    protected double objectiveFunction(double[] x) {
-      return m_oO.objectiveFunction(x);
-    }
-
-    @Override
-    protected double[] evaluateGradient(double[] x) {
-      return m_oO.evaluateGradient(x);
-    }
-
-    @Override
-    public String getRevision() {
-      return RevisionUtils.extract("$Revision: 12617 $");
-    }
-  }
-
-  private class OptEngCG extends ConjugateGradientOptimization {
-
-    OptObject m_oO = null;
-
-    private OptEngCG(OptObject oO) {
-      m_oO = oO;
-    }
-
-    @Override
-    protected double objectiveFunction(double[] x) {
-      return m_oO.objectiveFunction(x);
-    }
-
-    @Override
-    protected double[] evaluateGradient(double[] x) {
-      return m_oO.evaluateGradient(x);
-    }
-
-    @Override
-    public String getRevision() {
-      return RevisionUtils.extract("$Revision: 12617 $");
-    }
-  }
-
-  private class OptObject {
-
-    /** Weights of instances in the data */
-    private double[] weights;
-
-    /** Class labels of instances */
-    private int[] cls;
-
-    /**
-     * Set the weights of instances
-     * 
-     * @param w the weights to be set
-     */
-    public void setWeights(double[] w) {
-      weights = w;
-    }
-
-    /**
-     * Set the class labels of instances
-     * 
-     * @param c the class labels to be set
-     */
-    public void setClassLabels(int[] c) {
-      cls = c;
-    }
-
-    /**
-     * Evaluate objective function
-     * 
-     * @param x the current values of variables
-     * @return the value of the objective function
-     */
-    protected double objectiveFunction(double[] x) {
-      double nll = 0; // -LogLikelihood
-      int dim = m_NumPredictors + 1; // Number of variables per class
-
-      for (int i = 0; i < cls.length; i++) { // ith instance
-
-        double[] exp = new double[m_NumClasses - 1];
-        int index;
-        for (int offset = 0; offset < m_NumClasses - 1; offset++) {
-          index = offset * dim;
-          for (int j = 0; j < dim; j++) {
-            exp[offset] += m_Data[i][j] * x[index + j];
-          }
-        }
-        double max = exp[Utils.maxIndex(exp)];
-        double denom = Math.exp(-max);
-        double num;
-        if (cls[i] == m_NumClasses - 1) { // Class of this instance
-          num = -max;
-        } else {
-          num = exp[cls[i]] - max;
-        }
-        for (int offset = 0; offset < m_NumClasses - 1; offset++) {
-          denom += Math.exp(exp[offset] - max);
-        }
-
-        nll -= weights[i] * (num - Math.log(denom)); // Weighted NLL
-      }
-
-      // Ridge: note that intercepts NOT included
-      for (int offset = 0; offset < m_NumClasses - 1; offset++) {
-        for (int r = 1; r < dim; r++) {
-          nll += m_Ridge * x[offset * dim + r] * x[offset * dim + r];
-        }
-      }
-
-      return nll;
-    }
-
-    /**
-     * Evaluate Jacobian vector
-     * 
-     * @param x the current values of variables
-     * @return the gradient vector
-     */
-    protected double[] evaluateGradient(double[] x) {
-      double[] grad = new double[x.length];
-      int dim = m_NumPredictors + 1; // Number of variables per class
-
-      for (int i = 0; i < cls.length; i++) { // ith instance
-        double[] num = new double[m_NumClasses - 1]; // numerator of
-                                                     // [-log(1+sum(exp))]'
-        int index;
-        for (int offset = 0; offset < m_NumClasses - 1; offset++) { // Which
-                                                                    // part of x
-          double exp = 0.0;
-          index = offset * dim;
-          for (int j = 0; j < dim; j++) {
-            exp += m_Data[i][j] * x[index + j];
-          }
-          num[offset] = exp;
-        }
-
-        double max = num[Utils.maxIndex(num)];
-        double denom = Math.exp(-max); // Denominator of [-log(1+sum(exp))]'
-        for (int offset = 0; offset < m_NumClasses - 1; offset++) {
-          num[offset] = Math.exp(num[offset] - max);
-          denom += num[offset];
-        }
-        Utils.normalize(num, denom);
-
-        // Update denominator of the gradient of -log(Posterior)
-        double firstTerm;
-        for (int offset = 0; offset < m_NumClasses - 1; offset++) { // Which
-                                                                    // part of x
-          index = offset * dim;
-          firstTerm = weights[i] * num[offset];
-          for (int q = 0; q < dim; q++) {
-            grad[index + q] += firstTerm * m_Data[i][q];
-          }
-        }
-
-        if (cls[i] != m_NumClasses - 1) { // Not the last class
-          for (int p = 0; p < dim; p++) {
-            grad[cls[i] * dim + p] -= weights[i] * m_Data[i][p];
-          }
-        }
-      }
-
-      // Ridge: note that intercepts NOT included
-      for (int offset = 0; offset < m_NumClasses - 1; offset++) {
-        for (int r = 1; r < dim; r++) {
-          grad[offset * dim + r] += 2 * m_Ridge * x[offset * dim + r];
-        }
-      }
-
-      return grad;
-    }
-  }
-
-  /**
-   * Returns default capabilities of the classifier.
-   * 
+	/**
+	 * Returns default capabilities of the classifier.
+   *
    * @return the capabilities of this classifier
    */
   @Override
@@ -662,19 +476,22 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     result.enable(Capability.NOMINAL_CLASS);
     result.enable(Capability.MISSING_CLASS_VALUES);
 
-    return result;
+	  return result;
   }
 
   /**
    * Builds the classifier
-   * 
+   *
    * @param train the training data to be used for generating the boosted
    *          classifier.
    * @throws Exception if the classifier could not be built successfully
    */
   @Override
   public void buildClassifier(Instances train) throws Exception {
-    // can classifier handle the data?
+
+
+/*
+	// can classifier handle the data?
     getCapabilities().testWithFail(train);
 
     // remove instances with missing class
@@ -686,15 +503,19 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     m_ReplaceMissingValues.setInputFormat(train);
     train = Filter.useFilter(train, m_ReplaceMissingValues);
 
-    // Remove useless attributes
+*/
+	  // Remove useless attributes
     m_AttFilter = new RemoveUseless();
     m_AttFilter.setInputFormat(train);
     train = Filter.useFilter(train, m_AttFilter);
 
-    // Transform attributes
+/*
+	// Transform attributes
     m_NominalToBinary = new NominalToBinary();
     m_NominalToBinary.setInputFormat(train);
     train = Filter.useFilter(train, m_NominalToBinary);
+
+*/
 
     // Save the structure for printing the model
     m_structure = new Instances(train, 0);
@@ -853,9 +674,9 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     }
   }
 
-  /**
+	/**
    * Computes the distribution for a given instance
-   * 
+   *
    * @param instance the instance for which distribution is computed
    * @return the distribution
    * @throws Exception if the distribution can't be computed successfully
@@ -887,7 +708,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   /**
    * Compute the posterior distribution using optimized parameter values and the
    * testing instance.
-   * 
+   *
    * @param data the testing instance
    * @return the posterior probability distribution
    */
@@ -917,16 +738,16 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   /**
    * Returns the coefficients for this logistic model. The first dimension
    * indexes the attributes, and the second the classes.
-   * 
+   *
    * @return the coefficients for this logistic model
    */
   public double[][] coefficients() {
     return m_Par;
   }
 
-  /**
+	/**
    * Gets a string describing the classifier.
-   * 
+   *
    * @return a string describing the classifer built.
    */
   @Override
@@ -1056,7 +877,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
 
   /**
    * Returns the revision string.
-   * 
+   *
    * @return the revision
    */
   @Override
@@ -1064,11 +885,9 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
     return RevisionUtils.extract("$Revision: 12617 $");
   }
 
-  protected int m_numModels = 0;
-
   /**
    * Aggregate an object with this one
-   * 
+   *
    * @param toAggregate the object to aggregate
    * @return the result of aggregation
    * @throws Exception if the supplied object can't be aggregated for some
@@ -1104,7 +923,7 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   /**
    * Call to complete the aggregation process. Allows implementers to do any
    * final processing based on how many objects were aggregated.
-   * 
+   *
    * @throws Exception if the aggregation can't be finalized for some reason
    */
   @Override
@@ -1130,25 +949,199 @@ public class Logistic extends AbstractClassifier implements OptionHandler,
   }
 
   /**
-   * Main method for testing this class.
-   * 
-   * @param argv should contain the command line arguments to the scheme (see
-   *          Evaluation)
-   */
-  public static void main(String[] argv) {
-    runClassifier(new Logistic(), argv);
-  }
-
-  /**
    * Produce a PMML representation of this logistic model
-   * 
+   *
    * @param train the training data that was used to construct the model
-   * 
+   *
    * @return a string containing the PMML representation
    */
   @Override
   public String toPMML(Instances train) {
-    return LogisticProducerHelper.toPMML(train, m_structure, m_Par,
-      m_NumClasses);
+	  return LogisticProducerHelper.toPMML(train, m_structure, m_Par,
+			  m_NumClasses);
   }
+
+	private class OptEng extends Optimization {
+
+		OptObject m_oO = null;
+
+		private OptEng(OptObject oO) {
+			m_oO = oO;
+		}
+
+		@Override
+		protected double objectiveFunction(double[] x) {
+			return m_oO.objectiveFunction(x);
+		}
+
+		@Override
+		protected double[] evaluateGradient(double[] x) {
+			return m_oO.evaluateGradient(x);
+		}
+
+		@Override
+		public String getRevision() {
+			return RevisionUtils.extract("$Revision: 12617 $");
+		}
+	}
+
+	private class OptEngCG extends ConjugateGradientOptimization {
+
+		OptObject m_oO = null;
+
+		private OptEngCG(OptObject oO) {
+			m_oO = oO;
+		}
+
+		@Override
+		protected double objectiveFunction(double[] x) {
+			return m_oO.objectiveFunction(x);
+		}
+
+		@Override
+		protected double[] evaluateGradient(double[] x) {
+			return m_oO.evaluateGradient(x);
+		}
+
+		@Override
+		public String getRevision() {
+			return RevisionUtils.extract("$Revision: 12617 $");
+		}
+	}
+
+	private class OptObject {
+
+		/**
+		 * Weights of instances in the data
+		 */
+		private double[] weights;
+
+		/**
+		 * Class labels of instances
+		 */
+		private int[] cls;
+
+		/**
+		 * Set the weights of instances
+		 *
+		 * @param w the weights to be set
+		 */
+		public void setWeights(double[] w) {
+			weights = w;
+		}
+
+		/**
+		 * Set the class labels of instances
+		 *
+		 * @param c the class labels to be set
+		 */
+		public void setClassLabels(int[] c) {
+			cls = c;
+		}
+
+		/**
+		 * Evaluate objective function
+		 *
+		 * @param x the current values of variables
+		 * @return the value of the objective function
+		 */
+		protected double objectiveFunction(double[] x) {
+			double nll = 0; // -LogLikelihood
+			int dim = m_NumPredictors + 1; // Number of variables per class
+
+			for (int i = 0; i < cls.length; i++) { // ith instance
+
+				double[] exp = new double[m_NumClasses - 1];
+				int index;
+				for (int offset = 0; offset < m_NumClasses - 1; offset++) {
+					index = offset * dim;
+					for (int j = 0; j < dim; j++) {
+						exp[offset] += m_Data[i][j] * x[index + j];
+					}
+				}
+				double max = exp[Utils.maxIndex(exp)];
+				double denom = Math.exp(-max);
+				double num;
+				if (cls[i] == m_NumClasses - 1) { // Class of this instance
+					num = -max;
+				} else {
+					num = exp[cls[i]] - max;
+				}
+				for (int offset = 0; offset < m_NumClasses - 1; offset++) {
+					denom += Math.exp(exp[offset] - max);
+				}
+
+				nll -= weights[i] * (num - Math.log(denom)); // Weighted NLL
+			}
+
+			// Ridge: note that intercepts NOT included
+			for (int offset = 0; offset < m_NumClasses - 1; offset++) {
+				for (int r = 1; r < dim; r++) {
+					nll += m_Ridge * x[offset * dim + r] * x[offset * dim + r];
+				}
+			}
+
+			return nll;
+		}
+
+		/**
+		 * Evaluate Jacobian vector
+		 *
+		 * @param x the current values of variables
+		 * @return the gradient vector
+		 */
+		protected double[] evaluateGradient(double[] x) {
+			double[] grad = new double[x.length];
+			int dim = m_NumPredictors + 1; // Number of variables per class
+
+			for (int i = 0; i < cls.length; i++) { // ith instance
+				double[] num = new double[m_NumClasses - 1]; // numerator of
+				// [-log(1+sum(exp))]'
+				int index;
+				for (int offset = 0; offset < m_NumClasses - 1; offset++) { // Which
+					// part of x
+					double exp = 0.0;
+					index = offset * dim;
+					for (int j = 0; j < dim; j++) {
+						exp += m_Data[i][j] * x[index + j];
+					}
+					num[offset] = exp;
+				}
+
+				double max = num[Utils.maxIndex(num)];
+				double denom = Math.exp(-max); // Denominator of [-log(1+sum(exp))]'
+				for (int offset = 0; offset < m_NumClasses - 1; offset++) {
+					num[offset] = Math.exp(num[offset] - max);
+					denom += num[offset];
+				}
+				Utils.normalize(num, denom);
+
+				// Update denominator of the gradient of -log(Posterior)
+				double firstTerm;
+				for (int offset = 0; offset < m_NumClasses - 1; offset++) { // Which
+					// part of x
+					index = offset * dim;
+					firstTerm = weights[i] * num[offset];
+					for (int q = 0; q < dim; q++) {
+						grad[index + q] += firstTerm * m_Data[i][q];
+					}
+				}
+
+				if (cls[i] != m_NumClasses - 1) { // Not the last class
+					for (int p = 0; p < dim; p++) {
+						grad[cls[i] * dim + p] -= weights[i] * m_Data[i][p];
+					}
+				}
+			}
+
+			// Ridge: note that intercepts NOT included
+			for (int offset = 0; offset < m_NumClasses - 1; offset++) {
+				for (int r = 1; r < dim; r++) {
+					grad[offset * dim + r] += 2 * m_Ridge * x[offset * dim + r];
+				}
+			}
+
+			return grad;
+		}
+	}
 }

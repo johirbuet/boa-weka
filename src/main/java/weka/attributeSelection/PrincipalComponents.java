@@ -21,16 +21,17 @@
 
 package weka.attributeSelection;
 
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Vector;
-
-import no.uib.cipr.matrix.*;
-
+import no.uib.cipr.matrix.Matrices;
+import no.uib.cipr.matrix.SymmDenseEVD;
+import no.uib.cipr.matrix.UpperSymmDenseMatrix;
 import weka.core.*;
 import weka.core.Capabilities.Capability;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.*;
+
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  * <!-- globalinfo-start --> Performs a principal components analysis and
@@ -165,6 +166,37 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   private double[][] m_eTranspose;
 
   /**
+   * Return a matrix as a String
+   *
+   * @param matrix that is decribed as a string
+   * @return a String describing a matrix
+   */
+  public static String matrixToString(double[][] matrix) {
+    StringBuffer result = new StringBuffer();
+    int last = matrix.length - 1;
+
+    for (int i = 0; i <= last; i++) {
+      for (int j = 0; j <= last; j++) {
+        result.append(Utils.doubleToString(matrix[i][j], 6, 2) + " ");
+        if (j == last) {
+          result.append('\n');
+        }
+      }
+    }
+    return result.toString();
+  }
+
+  /**
+   * Main method for testing this class
+   *
+   * @param argv should contain the command line arguments to the
+   *             evaluator/transformer (see AttributeSelection)
+   */
+  public static void main(String[] argv) {
+    runEvaluator(new PrincipalComponents(), argv);
+  }
+
+  /**
    * Returns a string describing this attribute transformer
    *
    * @return a description of the evaluator suitable for displaying in the
@@ -208,64 +240,6 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Parses a given list of options.
-   * <p/>
-   *
-   * <!-- options-start --> Valid options are:
-   * <p/>
-   *
-   * <pre>
-   * -C
-   *  Center (rather than standardize) the
-   *  data and compute PCA using the covariance (rather
-   *   than the correlation) matrix.
-   * </pre>
-   *
-   * <pre>
-   * -R
-   *  Retain enough PC attributes to account
-   *  for this proportion of variance in the original data.
-   *  (default = 0.95)
-   * </pre>
-   *
-   * <pre>
-   * -O
-   *  Transform through the PC space and
-   *  back to the original space.
-   * </pre>
-   *
-   * <pre>
-   * -A
-   *  Maximum number of attributes to include in
-   *  transformed attribute names. (-1 = include all)
-   * </pre>
-   *
-   * <!-- options-end -->
-   *
-   * @param options the list of options as an array of strings
-   * @throws Exception if an option is not supported
-   */
-  @Override
-  public void setOptions(String[] options) throws Exception {
-    resetOptions();
-    String optionString;
-
-    optionString = Utils.getOption('R', options);
-    if (optionString.length() != 0) {
-      Double temp;
-      temp = Double.valueOf(optionString);
-      setVarianceCovered(temp.doubleValue());
-    }
-    optionString = Utils.getOption('A', options);
-    if (optionString.length() != 0) {
-      setMaximumAttributeNames(Integer.parseInt(optionString));
-    }
-
-    setTransformBackToOriginal(Utils.getFlag('O', options));
-    setCenterData(Utils.getFlag('C', options));
-  }
-
-  /**
    * Reset to defaults
    */
   private void resetOptions() {
@@ -286,16 +260,6 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Set whether to center (rather than standardize) the data. If set to true
-   * then PCA is computed from the covariance rather than correlation matrix.
-   *
-   * @param center true if the data is to be centered rather than standardized
-   */
-  public void setCenterData(boolean center) {
-    m_center = center;
-  }
-
-  /**
    * Get whether to center (rather than standardize) the data. If true then PCA
    * is computed from the covariance rather than correlation matrix.
    * 
@@ -303,6 +267,16 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
    */
   public boolean getCenterData() {
     return m_center;
+  }
+
+  /**
+   * Set whether to center (rather than standardize) the data. If set to true
+   * then PCA is computed from the covariance rather than correlation matrix.
+   *
+   * @param center true if the data is to be centered rather than standardized
+   */
+  public void setCenterData(boolean center) {
+    m_center = center;
   }
 
   /**
@@ -317,16 +291,6 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Sets the amount of variance to account for when retaining principal
-   * components
-   *
-   * @param vc the proportion of total variance to account for
-   */
-  public void setVarianceCovered(double vc) {
-    m_coverVariance = vc;
-  }
-
-  /**
    * Gets the proportion of total variance to account for when retaining
    * principal components
    * 
@@ -334,6 +298,16 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
    */
   public double getVarianceCovered() {
     return m_coverVariance;
+  }
+
+  /**
+   * Sets the amount of variance to account for when retaining principal
+   * components
+   *
+   * @param vc the proportion of total variance to account for
+   */
+  public void setVarianceCovered(double vc) {
+    m_coverVariance = vc;
   }
 
   /**
@@ -347,16 +321,6 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Sets maximum number of attributes to include in transformed attribute
-   * names.
-   *
-   * @param m the maximum number of attributes
-   */
-  public void setMaximumAttributeNames(int m) {
-    m_maxAttrsInName = m;
-  }
-
-  /**
    * Gets maximum number of attributes to include in transformed attribute
    * names.
    * 
@@ -364,6 +328,16 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
    */
   public int getMaximumAttributeNames() {
     return m_maxAttrsInName;
+  }
+
+  /**
+   * Sets maximum number of attributes to include in transformed attribute
+   * names.
+   *
+   * @param m the maximum number of attributes
+   */
+  public void setMaximumAttributeNames(int m) {
+    m_maxAttrsInName = m;
   }
 
   /**
@@ -380,21 +354,21 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Sets whether the data should be transformed back to the original space
-   *
-   * @param b true if the data should be transformed back to the original space
-   */
-  public void setTransformBackToOriginal(boolean b) {
-    m_transBackToOriginal = b;
-  }
-
-  /**
    * Gets whether the data is to be transformed back to the original space.
    * 
    * @return true if the data is to be transformed back to the original space
    */
   public boolean getTransformBackToOriginal() {
     return m_transBackToOriginal;
+  }
+
+  /**
+   * Sets whether the data should be transformed back to the original space
+   *
+   * @param b true if the data should be transformed back to the original space
+   */
+  public void setTransformBackToOriginal(boolean b) {
+    m_transBackToOriginal = b;
   }
 
   /**
@@ -422,6 +396,64 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
     }
 
     return options.toArray(new String[0]);
+  }
+
+  /**
+   * Parses a given list of options.
+   * <p/>
+   * <p>
+   * <!-- options-start --> Valid options are:
+   * <p/>
+   * <p>
+   * <pre>
+   * -C
+   *  Center (rather than standardize) the
+   *  data and compute PCA using the covariance (rather
+   *   than the correlation) matrix.
+   * </pre>
+   * <p>
+   * <pre>
+   * -R
+   *  Retain enough PC attributes to account
+   *  for this proportion of variance in the original data.
+   *  (default = 0.95)
+   * </pre>
+   * <p>
+   * <pre>
+   * -O
+   *  Transform through the PC space and
+   *  back to the original space.
+   * </pre>
+   * <p>
+   * <pre>
+   * -A
+   *  Maximum number of attributes to include in
+   *  transformed attribute names. (-1 = include all)
+   * </pre>
+   * <p>
+   * <!-- options-end -->
+   *
+   * @param options the list of options as an array of strings
+   * @throws Exception if an option is not supported
+   */
+  @Override
+  public void setOptions(String[] options) throws Exception {
+    resetOptions();
+    String optionString;
+
+    optionString = Utils.getOption('R', options);
+    if (optionString.length() != 0) {
+      Double temp;
+      temp = Double.valueOf(optionString);
+      setVarianceCovered(temp.doubleValue());
+    }
+    optionString = Utils.getOption('A', options);
+    if (optionString.length() != 0) {
+      setMaximumAttributeNames(Integer.parseInt(optionString));
+    }
+
+    setTransformBackToOriginal(Utils.getFlag('O', options));
+    setCenterData(Utils.getFlag('C', options));
   }
 
   /**
@@ -461,7 +493,7 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   @Override
   public void buildEvaluator(Instances data) throws Exception {
     // can evaluator handle data?
-    getCapabilities().testWithFail(data);
+//    getCapabilities().testWithFail(data);
 
     buildAttributeConstructor(data);
   }
@@ -472,7 +504,8 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
     m_attributeFilter = null;
     m_nominalToBinFilter = null;
     m_sumOfEigenValues = 0.0;
-    m_trainInstances = new Instances(data);
+//    m_trainInstances = new Instances(data);
+    m_trainInstances = data;
 
     // make a copy of the training data so that we can get the class
     // column to append to the transformed data (if necessary)
@@ -480,8 +513,8 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
 
     m_replaceMissingFilter = new ReplaceMissingValues();
     m_replaceMissingFilter.setInputFormat(m_trainInstances);
-    m_trainInstances =
-      Filter.useFilter(m_trainInstances, m_replaceMissingFilter);
+//    m_trainInstances =
+//      Filter.useFilter(m_trainInstances, m_replaceMissingFilter);
 
     /*
      * if (m_normalize) { m_normalizeFilter = new Normalize();
@@ -489,9 +522,9 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
      * Filter.useFilter(m_trainInstances, m_normalizeFilter); }
      */
 
-    m_nominalToBinFilter = new NominalToBinary();
-    m_nominalToBinFilter.setInputFormat(m_trainInstances);
-    m_trainInstances = Filter.useFilter(m_trainInstances, m_nominalToBinFilter);
+//    m_nominalToBinFilter = new NominalToBinary();
+//    m_nominalToBinFilter.setInputFormat(m_trainInstances);
+//    m_trainInstances = Filter.useFilter(m_trainInstances, m_nominalToBinFilter);
 
     // delete any attributes with only one distinct value or are all missing
     Vector<Integer> deleteCols = new Vector<Integer>();
@@ -805,27 +838,6 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   }
 
   /**
-   * Return a matrix as a String
-   *
-   * @param matrix that is decribed as a string
-   * @return a String describing a matrix
-   */
-  public static String matrixToString(double[][] matrix) {
-    StringBuffer result = new StringBuffer();
-    int last = matrix.length - 1;
-
-    for (int i = 0; i <= last; i++) {
-      for (int j = 0; j <= last; j++) {
-        result.append(Utils.doubleToString(matrix[i][j], 6, 2) + " ");
-        if (j == last) {
-          result.append('\n');
-        }
-      }
-    }
-    return result.toString();
-  }
-
-  /**
    * Convert a pc transformed instance back to the original space
    *
    * @param inst the instance to convert
@@ -1064,15 +1076,5 @@ public class PrincipalComponents extends UnsupervisedAttributeEvaluator
   @Override
   public String getRevision() {
     return RevisionUtils.extract("$Revision: 12659 $");
-  }
-
-  /**
-   * Main method for testing this class
-   *
-   * @param argv should contain the command line arguments to the
-   *          evaluator/transformer (see AttributeSelection)
-   */
-  public static void main(String[] argv) {
-    runEvaluator(new PrincipalComponents(), argv);
   }
 }
